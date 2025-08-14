@@ -1,0 +1,23 @@
+# Archivo requirements-jenrax.txt
+# Formato: repo@ref#private o repo@ref#public
+# 
+# repo: Nombre del repositorio en formato owner/repo (ej: odoo/odoo)
+# ref: Rama, tag o commit específico (ej: 16.0, main, abc123)
+# #private: Indica que el repositorio es privado (requiere token)
+# #public: Indica que el repositorio es público (no requiere token)
+#
+# Ejemplos:
+# yusuke1998/test_for_odoo_runboat_base@main#private
+# OCA/web@16.0#public
+# odoo/enterprise@16.0#private
+# custom-org/my-private-module@develop#private
+
+# Repositorios públicos (no requieren token)
+OCA/web@16.0#public
+OCA/server-tools@16.0#public
+odoo/odoo@16.0#public
+
+# Repositorios privados (requieren token)
+# odoo/enterprise@16.0#private
+# my-company/private-module@main#private
+# yusuke1998/test_for_odoo_runboat_base@main#private
