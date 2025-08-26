@@ -65,8 +65,8 @@ download_repository() {
     fi
 }
 
-# Process requirements-jenrax.txt file
-process_requirements_jenrax() {
+# Process addons-requirements.txt file
+process_addons_requirements() {
     local requirements_file="$1"
     
     if [ ! -f "$requirements_file" ]; then
@@ -203,13 +203,13 @@ fi
 # Install Python requirements for main repository
 install_all_python_requirements "."
 
-# Process requirements-jenrax.txt if exists
+# Process addons-requirements.txt if exists
 REQUIREMENTS_FOUND=false
 
 # Check in current directory
-if [ -f "requirements-jenrax.txt" ]; then
-    if ! process_requirements_jenrax "requirements-jenrax.txt"; then
-        echo "ERROR: Failed to process requirements-jenrax.txt"
+if [ -f "addons-requirements.txt" ]; then
+    if ! process_addons_requirements "addons-requirements.txt"; then
+        echo "ERROR: Failed to process addons-requirements.txt"
         exit 1
     fi
     REQUIREMENTS_FOUND=true
@@ -218,13 +218,13 @@ fi
 # Check in subdirectories if not found in root
 if [ "$REQUIREMENTS_FOUND" = "false" ]; then
     while IFS= read -r -d '' file; do
-        if ! process_requirements_jenrax "$file"; then
-            echo "ERROR: Failed to process requirements-jenrax.txt"
+        if ! process_addons_requirements "$file"; then
+            echo "ERROR: Failed to process addons-requirements.txt"
             exit 1
         fi
         REQUIREMENTS_FOUND=true
         break
-    done < <(find . -name "requirements-jenrax.txt" -type f -print0 2>/dev/null)
+    done < <(find . -name "addons-requirements.txt" -type f -print0 2>/dev/null)
 fi
 
 # Install Python requirements for all modules after all downloads are complete

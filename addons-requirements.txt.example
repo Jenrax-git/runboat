@@ -1,4 +1,4 @@
-# Archivo requirements-jenrax.txt
+# Archivo addons-requirements.txt
 # Formato: repo@ref#private o repo@ref#public
 # 
 # repo: Nombre del repositorio en formato owner/repo (ej: odoo/odoo)
