@@ -2,16 +2,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: odoo
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod-wildcard"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - "*.runboat.jenrax.com"
-      secretName: runboat-wildcard-tls
   rules:
     - http:
         paths:
