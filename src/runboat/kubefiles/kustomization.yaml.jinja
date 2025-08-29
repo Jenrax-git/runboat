@@ -75,10 +75,16 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: {{ build_slug }}.{{ build_domain }}
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: {{ build_slug }}.{{ build_domain }}
   - target:
       kind: Ingress
       name: mailhog
     patch: |-
       - op: replace
         path: /spec/rules/0/host
+        value: {{ build_slug }}.mail.{{ build_domain }}
+      - op: replace
+        path: /spec/tls/0/hosts/0
         value: {{ build_slug }}.mail.{{ build_domain }}

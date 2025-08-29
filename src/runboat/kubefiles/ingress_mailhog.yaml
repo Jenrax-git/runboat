@@ -2,8 +2,17 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: mailhog
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod-wildcard-mailhog"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - "{{ build_slug }}.mail.{{ build_domain }}"
+      secretName: runboat-mailhog-wildcard-tls
   rules:
     - http:
         paths:
