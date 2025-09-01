@@ -12,7 +12,7 @@ spec:
   tls:
     - hosts:
         - "{{ build_slug }}.{{ build_domain }}"
-      secretName: runboat-wildcard-tls
+      secretName: runboat-wildcard-cert
   rules:
     - http:
         paths:

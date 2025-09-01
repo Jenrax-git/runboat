@@ -12,7 +12,7 @@ spec:
   tls:
     - hosts:
         - "{{ build_slug }}.mail.{{ build_domain }}"
-      secretName: runboat-mailhog-wildcard-tls
+      secretName: runboat-mailhog-wildcard-cert
   rules:
     - http:
         paths:
