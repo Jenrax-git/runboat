@@ -42,4 +42,5 @@ spec:
       restartPolicy: Never
   completions: 1
   backoffLimit: 0
-  activeDeadlineSeconds: 1200
+  activeDeadlineSeconds: 3600  # 1 hora
+  ttlSecondsAfterFinished: 2592000 # 30 días
