@@ -192,52 +192,19 @@ class BuildsDb:
         ).fetchall()
         return [self._build_from_row(row) for row in rows]
 
-    def _should_protect_from_eviction(self, build: Build) -> bool:
-        """Check if a build should be protected from premature eviction.
-        
-        Builds that just completed initialization should be protected
-        to allow their logs to remain available according to ttlSecondsAfterFinished.
-        """
-        if build.init_status != BuildInitStatus.succeeded:
-            return False
-        
-        # Get protection time from settings
-        from .settings import get_settings
-        settings = get_settings()
-        protection_time = settings.init_logs_protection_time
-        
-        # If the build completed initialization less than protection_time ago, protect it
-        try:
-            from datetime import datetime
-            last_scaled = datetime.fromisoformat(build.last_scaled.replace('Z', '+00:00'))
-            now = datetime.now(last_scaled.tzinfo)
-            time_diff = now - last_scaled
-            return time_diff.total_seconds() < protection_time
-        except (ValueError, AttributeError):
-            # If we can't parse the timestamp, don't protect
-            return False
-
     def oldest_started(self, limit: int) -> list[Build]:
-        """Return a list of oldest started builds.
-        
-        Exclude builds that just completed initialization to allow their logs
-        to remain available according to ttlSecondsAfterFinished.
-        """
+        """Return a list of oldest started builds."""
         rows = self._con.execute(
             "SELECT * FROM builds WHERE status=? ORDER BY last_scaled LIMIT ?",
             (BuildStatus.started, limit),
         ).fetchall()
-        builds = [self._build_from_row(row) for row in rows]
-        
-        # Filter out builds that should be protected from eviction
-        return [build for build in builds if not self._should_protect_from_eviction(build)]
+        return [self._build_from_row(row) for row in rows]
 
     def oldest_stopped(self, limit: int) -> list[Build]:
         """Return a list of oldest stopped builds.
 
         Exclude the most recent build of each branch that we want to
-        preserve from eviction, and also exclude builds that just completed
-        initialization to allow their logs to remain available.
+        preserve from eviction.
         """
         rows = self._con.execute(
             """\
@@ -256,10 +223,7 @@ class BuildsDb:
             """,
             (BuildStatus.stopping, BuildStatus.stopped, BuildStatus.failed, limit),
         ).fetchall()
-        builds = [self._build_from_row(row) for row in rows]
-        
-        # Filter out builds that should be protected from eviction
-        return [build for build in builds if not self._should_protect_from_eviction(build)]
+        return [self._build_from_row(row) for row in rows]
 
     def repos(self) -> list[Repo]:
         rows = self._con.execute("SELECT DISTINCT repo FROM builds ORDER BY repo")

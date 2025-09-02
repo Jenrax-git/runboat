@@ -7,9 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .exceptions import RepoOrBranchNotSupported
 
-# Global settings instance
-_settings: "Settings | None" = None
-
 
 def validate_path(v: str | None) -> Path | None:
     if not v:
@@ -90,10 +87,6 @@ class Settings(BaseSettings):
     # A user and password to protect the web UI.
     ui_admin_user: str
     ui_admin_passwd: str
-    # The time (in seconds) to protect initialization logs from premature eviction.
-    # This allows logs to remain available according to ttlSecondsAfterFinished.
-    # Default: 24 hours (86400 seconds)
-    init_logs_protection_time: int = 86400
 
     def get_build_settings(self, repo: str, target_branch: str) -> list[BuildSettings]:
         for repo_settings in self.repos:
@@ -116,10 +109,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-def get_settings() -> Settings:
-    """Get the global settings instance."""
-    global _settings
-    if _settings is None:
-        _settings = Settings()
-    return _settings
