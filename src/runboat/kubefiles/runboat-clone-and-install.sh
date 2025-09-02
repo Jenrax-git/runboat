@@ -110,6 +110,12 @@ process_addons_requirements() {
         
         # Download the repository
         if download_repository "$repo_url" "$branch" "$is_private"; then
+            # Install Python requirements for this addon if it has a requirements.txt
+            if [ -f "requirements.txt" ]; then
+                echo "Installing Python requirements for addon: $repo_url"
+                pip install -r "requirements.txt"
+            fi
+            
             # Detect if it's a root module and reorganize if needed
             if detect_root_module; then
                 reorganize_root_module "$repo_url"
