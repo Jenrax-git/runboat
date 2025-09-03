@@ -26,6 +26,9 @@ else
     echo "No authentication token available, attempting public access"
 fi
 
+# Global array to track already processed repositories to avoid duplicates
+declare -A PROCESSED_REPOS
+
 # Download repository with authentication or fallback to public
 download_repository() {
     local repo="$1"
@@ -65,9 +68,10 @@ download_repository() {
     fi
 }
 
-# Process addons-requirements.txt file
+# Process addons-requirements.txt file recursively
 process_addons_requirements() {
     local requirements_file="$1"
+    local current_dir="$2"
     
     if [ ! -f "$requirements_file" ]; then
         return 0
@@ -104,6 +108,18 @@ process_addons_requirements() {
             repo_url="$repo_spec"
         fi
         
+        # Check if repository was already processed to avoid duplicates
+        local repo_key="${repo_url}@${branch}"
+        if [[ -n "${PROCESSED_REPOS[$repo_key]}" ]]; then
+            echo "Repository ${repo_url}@${branch} already processed, skipping..."
+            continue
+        fi
+        
+        # Mark repository as processed
+        PROCESSED_REPOS["$repo_key"]=1
+        
+        echo "Downloading repository: ${repo_url}@${branch}"
+        
         # Create temporary directory for this repository
         local temp_dir=$(mktemp -d)
         cd "$temp_dir"
@@ -123,14 +139,36 @@ process_addons_requirements() {
             
             # Move content to addons directory
             find . -maxdepth 1 -mindepth 1 -not -name "." -not -name ".." -exec mv {} "${ADDONS_DIR}/" \;
+            
+            # Return to addons directory to check for nested addons-requirements.txt
+            cd "${ADDONS_DIR}"
+            
+            # Check if this repository has its own addons-requirements.txt and process it recursively
+            if [ -f "addons-requirements.txt" ]; then
+                echo "Found nested addons-requirements.txt in ${repo_url}, processing recursively..."
+                if ! process_addons_requirements "addons-requirements.txt" "${ADDONS_DIR}"; then
+                    echo "ERROR: Failed to process nested addons-requirements.txt from ${repo_url}"
+                    return 1
+                fi
+            fi
+            
+            # Check in subdirectories for nested addons-requirements.txt
+            while IFS= read -r -d '' nested_file; do
+                echo "Found nested addons-requirements.txt in subdirectory: $nested_file"
+                if ! process_addons_requirements "$nested_file" "${ADDONS_DIR}"; then
+                    echo "ERROR: Failed to process nested addons-requirements.txt from subdirectory"
+                    return 1
+                fi
+            done < <(find . -name "addons-requirements.txt" -type f -print0 2>/dev/null)
+            
         else
-            cd "$ADDONS_DIR"
+            cd "$current_dir"
             rm -rf "$temp_dir"
             return 1
         fi
         
-        # Return to addons directory
-        cd "$ADDONS_DIR"
+        # Return to original directory
+        cd "$current_dir"
         rm -rf "$temp_dir"
     done < "$requirements_file"
     
@@ -214,7 +252,7 @@ REQUIREMENTS_FOUND=false
 
 # Check in current directory
 if [ -f "addons-requirements.txt" ]; then
-    if ! process_addons_requirements "addons-requirements.txt"; then
+    if ! process_addons_requirements "addons-requirements.txt" "."; then
         echo "ERROR: Failed to process addons-requirements.txt"
         exit 1
     fi
@@ -224,7 +262,7 @@ fi
 # Check in subdirectories if not found in root
 if [ "$REQUIREMENTS_FOUND" = "false" ]; then
     while IFS= read -r -d '' file; do
-        if ! process_addons_requirements "$file"; then
+        if ! process_addons_requirements "$file" "."; then
             echo "ERROR: Failed to process addons-requirements.txt"
             exit 1
         fi
