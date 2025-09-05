@@ -28,9 +28,9 @@ if [ "$_xtrace_was_on" -eq 1 ]; then
 fi
 
 if [ -n "${GITHUB_AUTH_TOKEN:+x}" ]; then
-    echo "Using GitHub token for authentication"
+    echo "Using GITHUB_AUTH_TOKEN for authentication"
 else
-    echo "No authentication token available, attempting public access"
+    echo "No authentication GITHUB_AUTH_TOKEN available, attempting public access"
 fi
 
 # Global array to track already processed repositories to avoid duplicates
