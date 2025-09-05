@@ -18,9 +18,16 @@ cd $ADDONS_DIR
 echo "Downloading repository: ${RUNBOAT_GIT_REPO}@${RUNBOAT_GIT_REF}"
 
 # Determine GitHub token with fallbacks
+_xtrace_was_on=0
+case $- in
+    *x*) _xtrace_was_on=1; set +x ;;
+esac
 GITHUB_AUTH_TOKEN="${RUNBOAT_GITHUB_TOKEN:-${GITHUB_TOKEN:-${TOKEN:-${GH_TOKEN:-}}}}"
+if [ "$_xtrace_was_on" -eq 1 ]; then
+    set -x
+fi
 
-if [ -n "$GITHUB_AUTH_TOKEN" ]; then
+if [ -n "${GITHUB_AUTH_TOKEN:+x}" ]; then
     echo "Using GitHub token for authentication"
 else
     echo "No authentication token available, attempting public access"
@@ -38,10 +45,18 @@ download_repository() {
     local url=""
     local http_code=""
     
-    if [ "$is_private" = "true" ] && [ -n "$GITHUB_AUTH_TOKEN" ]; then
+    if [ "$is_private" = "true" ] && [ -n "${GITHUB_AUTH_TOKEN:+x}" ]; then
         # Try authenticated download first
+        # Temporarily disable xtrace to avoid leaking the token in logs
+        local xtrace_was_on=0
+        case $- in
+            *x*) xtrace_was_on=1; set +x ;;
+        esac
         url="https://${GITHUB_AUTH_TOKEN}@github.com/${repo}/tarball/${ref}"
         http_code=$(curl -s -w "%{http_code}" -L -o tarball.tar.gz "$url")
+        if [ "$xtrace_was_on" -eq 1 ]; then
+            set -x
+        fi
         
         if [ "$http_code" = "200" ] && tar -tzf tarball.tar.gz >/dev/null 2>&1; then
             tar zxf tarball.tar.gz --strip-components=1
@@ -227,7 +242,7 @@ install_all_python_requirements() {
 }
 
 # Download main repository
-if [ -n "$GITHUB_AUTH_TOKEN" ]; then
+if [ -n "${GITHUB_AUTH_TOKEN:+x}" ]; then
     if ! download_repository "${RUNBOAT_GIT_REPO}" "${RUNBOAT_GIT_REF}" "true"; then
         echo "ERROR: Failed to download main repository"
         exit 1
