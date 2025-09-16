@@ -39,7 +39,7 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: data
-      restartPolicy: Never
+      restartPolicy: OnFailure
   completions: 1
   backoffLimit: 0
   activeDeadlineSeconds: 3600  # 1 hora
