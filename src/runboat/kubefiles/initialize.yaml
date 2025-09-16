@@ -39,8 +39,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: data
-      restartPolicy: OnFailure
+      restartPolicy: Never
   completions: 1
-  backoffLimit: 3
-  activeDeadlineSeconds: 3600  # 1 hora
-  ttlSecondsAfterFinished: 2592000 # 30 días
+  backoffLimit: 0
+  activeDeadlineSeconds: 3600  # 1 hour
+  ttlSecondsAfterFinished: 2592000 # 30 days
