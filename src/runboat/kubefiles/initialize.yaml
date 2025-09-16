@@ -41,6 +41,6 @@ spec:
             claimName: data
       restartPolicy: OnFailure
   completions: 1
-  backoffLimit: 0
+  backoffLimit: 3
   activeDeadlineSeconds: 3600  # 1 hora
   ttlSecondsAfterFinished: 2592000 # 30 días
