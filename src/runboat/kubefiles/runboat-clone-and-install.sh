@@ -293,6 +293,7 @@ install_all_python_requirements "${ADDONS_DIR}"
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 echo "Starting installation with method: ${INSTALL_METHOD}"
 
+echo "HOLA MUNDO"
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
     oca_install_addons
 elif [[ "${INSTALL_METHOD}" == "editable_pip_install" ]] ; then
