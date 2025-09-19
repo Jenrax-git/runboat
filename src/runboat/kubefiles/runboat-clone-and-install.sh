@@ -36,6 +36,10 @@ if [[ -f "$TEMP_DIR/__manifest__.py" || -f "$TEMP_DIR/__openerp__.py" ]]; then
     if [[ -f "$TEMP_DIR/test-requirements.txt" ]]; then
         cp "$TEMP_DIR/test-requirements.txt" "$ADDONS_DIR/"
     fi
+        # Copy setup directory to addons root if it exists
+    if [[ -d "$TEMP_DIR/setup" ]]; then
+        cp -r "$TEMP_DIR/setup" "$ADDONS_DIR/"
+    fi
 else
     # It's a collection of modules - copy everything to addons dir
     cp -r "$TEMP_DIR"/* "$ADDONS_DIR"/
@@ -50,6 +54,9 @@ cd $ADDONS_DIR
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
     oca_install_addons
+    # if [ -f requirements.txt ]; then
+    #     pip install -r requirements.txt
+    # fi
 elif [[ "${INSTALL_METHOD}" == "editable_pip_install" ]] ; then
     pip install -e .
 else
