@@ -2,10 +2,7 @@ name: Build and Push to Digital Ocean Registry
 
 on:
   push:
-    branches: ["main-jenrax"]
     tags: ["v*"]
-  pull_request:
-    branches: ["main-jenrax"]
 
 env:
   REGISTRY: registry.digitalocean.com
