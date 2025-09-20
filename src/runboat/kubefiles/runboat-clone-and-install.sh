@@ -12,6 +12,7 @@ rm -fr $ADDONS_DIR
 # We use curl instead of git clone because the git clone method used more than 1GB RAM,
 # which exceeded the default pod memory limit.
 mkdir -p $ADDONS_DIR
+INSTALL_ADDONS_DIR=${INSTALL_ADDONS_DIR:-$ADDONS_DIR}
 
 # Download to a temporary directory first
 TEMP_DIR=$(mktemp -d)
@@ -21,6 +22,7 @@ curl -sSL \
     "https://api.github.com/repos/${RUNBOAT_GIT_REPO}/tarball/${RUNBOAT_GIT_REF}" \
     | tar zxf - --strip-components=1 -C $TEMP_DIR
 
+INSTALL_ADDONS 
 # Check if it's a single module or a collection of modules
 if [[ -f "$TEMP_DIR/__manifest__.py" || -f "$TEMP_DIR/__openerp__.py" ]]; then
     # It's a single module - extract repo name and create module directory
@@ -28,18 +30,7 @@ if [[ -f "$TEMP_DIR/__manifest__.py" || -f "$TEMP_DIR/__openerp__.py" ]]; then
     MODULE_DIR="$ADDONS_DIR/$REPO_NAME"
     mkdir -p "$MODULE_DIR"
     cp -r "$TEMP_DIR"/* "$MODULE_DIR"/
-    
-    # Copy requirements files to addons root if they exist
-    if [[ -f "$TEMP_DIR/requirements.txt" ]]; then
-        cp "$TEMP_DIR/requirements.txt" "$ADDONS_DIR/"
-    fi
-    if [[ -f "$TEMP_DIR/test-requirements.txt" ]]; then
-        cp "$TEMP_DIR/test-requirements.txt" "$ADDONS_DIR/"
-    fi
-        # Copy setup directory to addons root if it exists
-    if [[ -d "$TEMP_DIR/setup" ]]; then
-        cp -r "$TEMP_DIR/setup" "$ADDONS_DIR/"
-    fi
+    INSTALL_ADDONS_DIR="$MODULE_DIR"
 else
     # It's a collection of modules - copy everything to addons dir
     cp -r "$TEMP_DIR"/* "$ADDONS_DIR"/
@@ -48,15 +39,12 @@ fi
 # Clean up temporary directory
 rm -rf "$TEMP_DIR"
 
-cd $ADDONS_DIR
+cd "$INSTALL_ADDONS_DIR"
 
 # Install.
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
     oca_install_addons
-    # if [ -f requirements.txt ]; then
-    #     pip install -r requirements.txt
-    # fi
 elif [[ "${INSTALL_METHOD}" == "editable_pip_install" ]] ; then
     pip install -e .
 else
