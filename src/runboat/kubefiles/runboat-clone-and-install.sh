@@ -21,8 +21,7 @@ curl -sSL \
     -H "Accept: application/vnd.github.v3+json" \
     "https://api.github.com/repos/${RUNBOAT_GIT_REPO}/tarball/${RUNBOAT_GIT_REF}" \
     | tar zxf - --strip-components=1 -C $TEMP_DIR
-
-INSTALL_ADDONS 
+ 
 # Check if it's a single module or a collection of modules
 if [[ -f "$TEMP_DIR/__manifest__.py" || -f "$TEMP_DIR/__openerp__.py" ]]; then
     # It's a single module - extract repo name and create module directory
