@@ -12,10 +12,10 @@ rm -fr $ADDONS_DIR
 # We use curl instead of git clone because the git clone method used more than 1GB RAM,
 # which exceeded the default pod memory limit.
 mkdir -p $ADDONS_DIR
-
-# Download to a temporary directory first
+# Configure git to use the GitHub token for authentication
 git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
+# Download to a temporary directory first
 TEMP_DIR=$(mktemp -d)
 curl -sSL \
     -H "Authorization: token ${GITHUB_TOKEN}" \
