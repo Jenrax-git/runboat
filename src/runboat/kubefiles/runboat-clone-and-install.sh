@@ -14,12 +14,15 @@ rm -fr $ADDONS_DIR
 mkdir -p $ADDONS_DIR
 
 # Download to a temporary directory first
+git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+
 TEMP_DIR=$(mktemp -d)
 curl -sSL \
     -H "Authorization: token ${GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github.v3+json" \
     "https://api.github.com/repos/${RUNBOAT_GIT_REPO}/tarball/${RUNBOAT_GIT_REF}" \
     | tar zxf - --strip-components=1 -C $TEMP_DIR
+
 
 # Check if it's a single module or a collection of modules
 if [[ -f "$TEMP_DIR/__manifest__.py" || -f "$TEMP_DIR/__openerp__.py" ]]; then
