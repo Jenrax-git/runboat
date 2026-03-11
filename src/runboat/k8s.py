@@ -167,6 +167,10 @@ def make_deployment_vars(
     build_env = settings.build_env | build_settings.env
     # If repo has "enterprise" topic, add Enterprise addons for the build
     if "enterprise" in commit_info.topics:
+        _logger.info(
+            "Adding Odoo Enterprise addons for %s (repo has 'enterprise' topic)",
+            slug,
+        )
         build_env = {
             **build_env,
             "ENTERPRISE_DIR": "/mnt/data/enterprise-addons",

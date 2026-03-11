@@ -216,7 +216,8 @@ class Build(BaseModel):
         """Deploy a build, without starting it."""
         name = f"b{uuid.uuid4()}"
         slug = cls.make_slug(commit_info)
-        _logger.info(f"Deploying {slug} ({name}).")
+        enterprise_note = " [enterprise]" if "enterprise" in commit_info.topics else ""
+        _logger.info(f"Deploying {slug} ({name}){enterprise_note}.")
         await cls._deploy(
             commit_info, name, slug, job_kind=k8s.DeploymentMode.deployment
         )
