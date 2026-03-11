@@ -19,8 +19,9 @@ echo "admin_passwd=$(python3 -c 'import secrets; print(secrets.token_hex())')" >
 
 # Add ADDONS_DIR to addons_path (because that oca_install_addons did,
 # but $ODOO_RC is not on a persistent volume, so it is lost when we
-# start in another container).
-echo "addons_path=${ADDONS_PATH},${ADDONS_DIR}" >> ${ODOO_RC}
+# start in another container). Include ENTERPRISE_DIR when repo has enterprise topic.
+addons_path="${ADDONS_PATH}${ENTERPRISE_DIR:+,${ENTERPRISE_DIR}},${ADDONS_DIR}"
+echo "addons_path=${addons_path}" >> ${ODOO_RC}
 cat ${ODOO_RC}
 
 # Install 'deb' external dependencies of all Odoo addons found in path.

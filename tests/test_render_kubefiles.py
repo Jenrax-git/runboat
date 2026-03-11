@@ -25,6 +25,7 @@ commonAnnotations:
   runboat/target-branch: "15.0"
   runboat/pr: ""
   runboat/git-commit: "abcdef123456789"
+  runboat/topics: '[]'
 
 images:
   - name: odoo
@@ -71,12 +72,18 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: build-slug.runboat.odoo-community.org
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: build-slug.runboat.odoo-community.org
   - target:
       kind: Ingress
       name: mailhog
     patch: |-
       - op: replace
         path: /spec/rules/0/host
+        value: build-slug.mail.runboat.odoo-community.org
+      - op: replace
+        path: /spec/tls/0/hosts/0
         value: build-slug.mail.runboat.odoo-community.org
 """
 
