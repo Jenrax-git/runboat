@@ -25,7 +25,7 @@ commonAnnotations:
   runboat/target-branch: "15.0"
   runboat/pr: ""
   runboat/git-commit: "abcdef123456789"
-  runboat/topics: "[]"
+  runboat/topics: '[]'
 
 images:
   - name: odoo

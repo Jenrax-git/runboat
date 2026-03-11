@@ -27,7 +27,7 @@ commonAnnotations:
   runboat/target-branch: "{{ commit_info.target_branch }}"
   runboat/pr: "{{ commit_info.pr if commit_info.pr else '' }}"
   runboat/git-commit: "{{ commit_info.git_commit }}"
-  runboat/topics: "{{ commit_info.topics | tojson }}"
+  runboat/topics: '{{ commit_info.topics | tojson }}'
 
 images:
   - name: odoo
