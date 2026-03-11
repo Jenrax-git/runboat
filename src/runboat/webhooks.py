@@ -53,6 +53,7 @@ async def receive_payload(
             )
             return
         if payload["action"] in ("opened", "synchronize"):
+            topics = payload.get("repository", {}).get("topics", [])
             background_tasks.add_task(
                 controller.deploy_commit,
                 CommitInfo(
@@ -60,6 +61,7 @@ async def receive_payload(
                     target_branch=target_branch,
                     pr=payload["pull_request"]["number"],
                     git_commit=payload["pull_request"]["head"]["sha"],
+                    topics=topics,
                 ),
             )
         elif payload["action"] in ("closed",):
@@ -79,6 +81,7 @@ async def receive_payload(
                 target_branch,
             )
             return
+        topics = payload.get("repository", {}).get("topics", [])
         background_tasks.add_task(
             controller.deploy_commit,
             CommitInfo(
@@ -86,5 +89,6 @@ async def receive_payload(
                 target_branch=target_branch,
                 pr=None,
                 git_commit=payload["after"],
+                topics=topics,
             ),
         )

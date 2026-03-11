@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import uuid
 from enum import Enum
@@ -13,6 +14,17 @@ from .settings import settings
 from .utils import slugify
 
 _logger = logging.getLogger(__name__)
+
+
+def _topics_from_annotation(value: str | None) -> list[str]:
+    """Parse topics from deployment annotation (JSON array)."""
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        return list(parsed) if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 class BuildEvent(str, Enum):
@@ -83,6 +95,9 @@ class Build(BaseModel):
                 target_branch=deployment.metadata.annotations["runboat/target-branch"],
                 pr=deployment.metadata.annotations.get("runboat/pr") or None,
                 git_commit=deployment.metadata.annotations["runboat/git-commit"],
+                topics=_topics_from_annotation(
+                    deployment.metadata.annotations.get("runboat/topics")
+                ),
             ),
             init_status=deployment.metadata.annotations["runboat/init-status"],
             status=cls._status_from_deployment(deployment),

@@ -164,6 +164,14 @@ def make_deployment_vars(
     build_settings: BuildSettings,
 ) -> DeploymentVars:
     image_name, image_tag = _split_image_name_tag(build_settings.image)
+    build_env = settings.build_env | build_settings.env
+    # If repo has "enterprise" topic, add Enterprise addons for the build
+    if "enterprise" in commit_info.topics:
+        build_env = {
+            **build_env,
+            "ENTERPRISE_DIR": "/mnt/data/enterprise-addons",
+            "RUNBOAT_TARGET_BRANCH": commit_info.target_branch,
+        }
     return DeploymentVars(
         mode=mode,
         namespace=settings.build_namespace,
@@ -173,7 +181,7 @@ def make_deployment_vars(
         commit_info=commit_info,
         image_name=image_name,
         image_tag=image_tag,
-        build_env=settings.build_env | build_settings.env,
+        build_env=build_env,
         build_secret_env=settings.build_secret_env | build_settings.secret_env,
         build_template_vars=settings.build_template_vars | build_settings.template_vars,
     )
