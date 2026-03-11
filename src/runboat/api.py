@@ -109,6 +109,8 @@ async def undeploy_builds(
 async def trigger_branch(repo: str, branch: str) -> None:
     """Trigger build for a branch."""
     commit_info = await github.get_branch_info(repo, branch)
+    topics = await github.get_repo_topics(repo)
+    commit_info = commit_info.model_copy(update={"topics": topics})
     await controller.deploy_commit(commit_info)
 
 

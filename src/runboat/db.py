@@ -1,3 +1,4 @@
+import json
 import logging
 import sqlite3
 from collections.abc import Iterator
@@ -41,8 +42,11 @@ class BuildsDb:
 
     @classmethod
     def _build_from_row(cls, row: "sqlite3.Row") -> Build:
-        commit_info_fields = {"repo", "target_branch", "pr", "git_commit"}
-        commit_info = CommitInfo(**{k: row[k] for k in commit_info_fields})
+        commit_info_fields = {"repo", "target_branch", "pr", "git_commit", "topics"}
+        commit_info = CommitInfo(
+            **{k: row[k] for k in commit_info_fields if k != "topics"},
+            topics=json.loads(row["topics"]) if row["topics"] else [],
+        )
         return Build(
             commit_info=commit_info,
             **{k: row[k] for k in row.keys() if k not in commit_info_fields},
@@ -59,6 +63,7 @@ class BuildsDb:
             "    target_branch TEXT NOT NULL, "
             "    pr INTEGER, "
             "    git_commit TEXT NOT NULL, "
+            "    topics TEXT, "
             "    desired_replicas INTEGER NOT NULL,"
             "    status TEXT NOT NULL, "
             "    init_status TEXT NOT NULL, "
@@ -117,13 +122,14 @@ class BuildsDb:
                 "    target_branch,"
                 "    pr,"
                 "    git_commit,"
+                "    topics,"
                 "    desired_replicas,"
                 "    status,"
                 "    init_status, "
                 "    last_scaled, "
                 "    created"
                 ") "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     build.name,
                     build.deployment_name,
@@ -131,6 +137,7 @@ class BuildsDb:
                     build.commit_info.target_branch,
                     build.commit_info.pr,
                     build.commit_info.git_commit,
+                    json.dumps(build.commit_info.topics) if build.commit_info.topics else None,
                     build.desired_replicas,
                     build.status,
                     build.init_status,
