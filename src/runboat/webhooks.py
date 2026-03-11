@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Header, Request
 
 from .controller import controller
+from . import github
 from .github import CommitInfo
 from .settings import settings
 
@@ -53,6 +54,11 @@ async def receive_payload(
             )
             return
         if payload["action"] in ("opened", "synchronize"):
+            topics = payload.get("repository", {}).get("topics", [])
+            if not topics:
+                _logger.debug("Topics not in webhook payload, fetching from API for %s", repo)
+                topics = await github.get_repo_topics(repo)
+            _logger.debug("Deploying PR for %s with topics %s", repo, topics)
             background_tasks.add_task(
                 controller.deploy_commit,
                 CommitInfo(
@@ -60,6 +66,7 @@ async def receive_payload(
                     target_branch=target_branch,
                     pr=payload["pull_request"]["number"],
                     git_commit=payload["pull_request"]["head"]["sha"],
+                    topics=topics,
                 ),
             )
         elif payload["action"] in ("closed",):
@@ -79,6 +86,11 @@ async def receive_payload(
                 target_branch,
             )
             return
+        topics = payload.get("repository", {}).get("topics", [])
+        if not topics:
+            _logger.debug("Topics not in webhook payload, fetching from API for %s", repo)
+            topics = await github.get_repo_topics(repo)
+        _logger.debug("Deploying push for %s with topics %s", repo, topics)
         background_tasks.add_task(
             controller.deploy_commit,
             CommitInfo(
@@ -86,5 +98,6 @@ async def receive_payload(
                 target_branch=target_branch,
                 pr=None,
                 git_commit=payload["after"],
+                topics=topics,
             ),
         )

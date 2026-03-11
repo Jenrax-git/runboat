@@ -31,10 +31,17 @@ class CommitInfo(BaseModel):
     target_branch: str
     pr: int | None
     git_commit: str
+    topics: list[str] = []
 
     @field_validator("repo")
     def validate_repo(cls, v: str) -> str:
         return v.lower()
+
+
+async def get_repo_topics(repo: str) -> list[str]:
+    """Get repository topics from GitHub API. Used to detect Enterprise builds."""
+    data = await _github_request("GET", f"/repos/{repo}")
+    return data.get("topics", [])
 
 
 async def get_branch_info(repo: str, branch: str) -> CommitInfo:
@@ -54,6 +61,7 @@ async def get_pull_info(repo: str, pr: int) -> CommitInfo:
         target_branch=pr_data["base"]["ref"],
         pr=pr,
         git_commit=pr_data["head"]["sha"],
+        topics=pr_data["base"]["repo"].get("topics", []),
     )
 
 
