@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import uuid
 from enum import Enum
@@ -13,6 +14,17 @@ from .settings import settings
 from .utils import slugify
 
 _logger = logging.getLogger(__name__)
+
+
+def _topics_from_annotation(value: str | None) -> list[str]:
+    """Parse topics from deployment annotation (JSON array)."""
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        return list(parsed) if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 class BuildEvent(str, Enum):
@@ -75,6 +87,15 @@ class Build(BaseModel):
 
     @classmethod
     def from_deployment(cls, deployment: V1Deployment) -> "Build":
+        topics = _topics_from_annotation(
+            deployment.metadata.annotations.get("runboat/topics")
+        )
+        _logger.debug(
+            "Build.from_deployment %s: runboat/topics=%s -> topics=%s",
+            deployment.metadata.name,
+            deployment.metadata.annotations.get("runboat/topics"),
+            topics,
+        )
         return Build(
             name=deployment.metadata.labels["runboat/build"],
             deployment_name=deployment.metadata.name,
@@ -83,6 +104,7 @@ class Build(BaseModel):
                 target_branch=deployment.metadata.annotations["runboat/target-branch"],
                 pr=deployment.metadata.annotations.get("runboat/pr") or None,
                 git_commit=deployment.metadata.annotations["runboat/git-commit"],
+                topics=topics,
             ),
             init_status=deployment.metadata.annotations["runboat/init-status"],
             status=cls._status_from_deployment(deployment),
@@ -201,7 +223,8 @@ class Build(BaseModel):
         """Deploy a build, without starting it."""
         name = f"b{uuid.uuid4()}"
         slug = cls.make_slug(commit_info)
-        _logger.info(f"Deploying {slug} ({name}).")
+        enterprise_note = " [enterprise]" if "enterprise" in commit_info.topics else ""
+        _logger.info(f"Deploying {slug} ({name}){enterprise_note}.")
         await cls._deploy(
             commit_info, name, slug, job_kind=k8s.DeploymentMode.deployment
         )
@@ -269,6 +292,11 @@ class Build(BaseModel):
         """Launch the initialization job."""
         # Start initialization job. on_initialize_{started,succeeded,failed} callbacks
         # will follow from job events.
+        _logger.debug(
+            "Deploying initialize job for %s with topics %s",
+            self,
+            self.commit_info.topics,
+        )
         _logger.info(f"Deploying initialize job for {self}.")
         await self._deploy(
             self.commit_info,

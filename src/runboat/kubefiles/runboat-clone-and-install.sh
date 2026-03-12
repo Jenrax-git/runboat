@@ -50,10 +50,25 @@ rm -rf "$TEMP_DIR"
 
 cd $ADDONS_DIR
 
+# Clone Odoo Enterprise if repo has "enterprise" topic
+if [[ -n "${ENTERPRISE_DIR:-}" ]]; then
+    rm -fr "$ENTERPRISE_DIR"
+    mkdir -p "$ENTERPRISE_DIR"
+    curl -sSL \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/odoo/enterprise/tarball/${RUNBOAT_TARGET_BRANCH:-${RUNBOAT_GIT_REF}}" \
+        | tar zxf - --strip-components=1 -C "$ENTERPRISE_DIR"
+fi
+
 # Install.
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
     oca_install_addons
+    # Add Enterprise to addons_path if cloned (replace, do not append - avoids DuplicateOptionError)
+    if [[ -n "${ENTERPRISE_DIR:-}" ]]; then
+        sed -i "s|^addons_path=.*|addons_path=${ADDONS_PATH},${ENTERPRISE_DIR},${ADDONS_DIR}|" ${ODOO_RC}
+    fi
     #TODO: This is here because oca_install_addons does not install the requirements for our modules
     # for the addons investigate why not
     if [ -f requirements.txt ]; then
