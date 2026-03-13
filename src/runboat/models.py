@@ -60,6 +60,7 @@ class Build(BaseModel):
     desired_replicas: int
     last_scaled: datetime.datetime
     created: datetime.datetime
+    copy_db_from: str | None = None
 
     def __str__(self) -> str:
         return f"{self.slug} ({self.name})"
@@ -112,6 +113,8 @@ class Build(BaseModel):
             last_scaled=deployment.metadata.annotations.get("runboat/last-scaled")
             or deployment.metadata.creation_timestamp,
             created=deployment.metadata.creation_timestamp,
+            copy_db_from=deployment.metadata.annotations.get("runboat/copy-db-from")
+            or None,
         )
 
     @classmethod
@@ -200,7 +203,12 @@ class Build(BaseModel):
 
     @classmethod
     async def _deploy(
-        cls, commit_info: CommitInfo, name: str, slug: str, job_kind: k8s.DeploymentMode
+        cls,
+        commit_info: CommitInfo,
+        name: str,
+        slug: str,
+        job_kind: k8s.DeploymentMode,
+        copy_db_from: str | None = None,
     ) -> None:
         """Internal method to prepare for and handle a k8s.deploy()."""
         build_settings = settings.get_build_settings(
@@ -215,18 +223,27 @@ class Build(BaseModel):
             slug,
             commit_info,
             build_settings,
+            copy_db_from=copy_db_from,
         )
         await k8s.deploy(kubefiles_path, deployment_vars)
 
     @classmethod
-    async def deploy(cls, commit_info: CommitInfo) -> None:
+    async def deploy(
+        cls,
+        commit_info: CommitInfo,
+        copy_db_from: str | None = None,
+    ) -> None:
         """Deploy a build, without starting it."""
         name = f"b{uuid.uuid4()}"
         slug = cls.make_slug(commit_info)
         enterprise_note = " [enterprise]" if "enterprise" in commit_info.topics else ""
         _logger.info(f"Deploying {slug} ({name}){enterprise_note}.")
         await cls._deploy(
-            commit_info, name, slug, job_kind=k8s.DeploymentMode.deployment
+            commit_info,
+            name,
+            slug,
+            job_kind=k8s.DeploymentMode.deployment,
+            copy_db_from=copy_db_from,
         )
         await github.notify_status(
             commit_info.repo,
@@ -246,6 +263,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.start,
+            copy_db_from=self.copy_db_from,
         )
         await self._patch(desired_replicas=1)
 
@@ -260,6 +278,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.stop,
+            copy_db_from=self.copy_db_from,
         )
 
     async def undeploy(self) -> None:
@@ -280,6 +299,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.deployment,
+            copy_db_from=self.copy_db_from,
         )
         await github.notify_status(
             self.commit_info.repo,
@@ -303,6 +323,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.initialize,
+            copy_db_from=self.copy_db_from,
         )
 
     async def _delete_deployment_resources(self) -> None:
@@ -325,7 +346,11 @@ class Build(BaseModel):
         # from job events.
         _logger.info(f"Deploying cleanup job for {self}.")
         await self._deploy(
-            self.commit_info, self.name, self.slug, job_kind=k8s.DeploymentMode.cleanup
+            self.commit_info,
+            self.name,
+            self.slug,
+            job_kind=k8s.DeploymentMode.cleanup,
+            copy_db_from=self.copy_db_from,
         )
 
     async def on_initialize_started(self) -> None:
@@ -351,6 +376,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.stop,
+            copy_db_from=self.copy_db_from,
         )
         if await self._patch(init_status=BuildInitStatus.succeeded):
             await github.notify_status(
@@ -371,6 +397,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.stop,
+            copy_db_from=self.copy_db_from,
         )
         if await self._patch(init_status=BuildInitStatus.failed, desired_replicas=0):
             await github.notify_status(

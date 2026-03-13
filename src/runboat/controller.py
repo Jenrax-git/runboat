@@ -4,7 +4,9 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from . import k8s
-from .db import BuildsDb
+from .constants import SOURCE_DB_USE_LAST
+from .db import BuildsDb, SortOrder
+from .exceptions import NoPreviousBuildError
 from .github import CommitInfo
 from .models import Build, BuildEvent, BuildInitStatus, BuildStatus
 from .settings import settings
@@ -96,7 +98,12 @@ class Controller:
     def undeploying(self) -> int:
         return self.db.count_by_status(BuildStatus.undeploying)
 
-    async def deploy_commit(self, commit_info: CommitInfo) -> None:
+    async def deploy_commit(
+        self,
+        commit_info: CommitInfo,
+        source_db: str | None = None,
+        source_db_required: bool = True,
+    ) -> None:
         """Deploy build for a commit, or do nothing if build already exist."""
         build = self.db.get_for_commit(
             repo=commit_info.repo,
@@ -105,7 +112,38 @@ class Controller:
             git_commit=commit_info.git_commit,
         )
         if build is None:
-            await Build.deploy(commit_info)
+            copy_db_from: str | None = None
+            if source_db:
+                if source_db == SOURCE_DB_USE_LAST:
+                    if commit_info.pr is not None:
+                        builds = list(
+                            self.db.search(
+                                repo=commit_info.repo,
+                                target_branch=commit_info.target_branch,
+                                pr=commit_info.pr,
+                                sort=SortOrder.desc,
+                            )
+                        )
+                    else:
+                        builds = list(
+                            self.db.search(
+                                repo=commit_info.repo,
+                                branch=commit_info.target_branch,
+                                sort=SortOrder.desc,
+                            )
+                        )
+                    # Exclude undeploying builds (their DB may be dropped)
+                    builds = [b for b in builds if b.status != BuildStatus.undeploying]
+                    if builds:
+                        copy_db_from = builds[0].name
+                    elif source_db_required:
+                        raise NoPreviousBuildError(
+                            "No se encontró ningún build previo para este branch/PR. "
+                            "Deje source_db vacío o proporcione el nombre de una DB existente."
+                        )
+                else:
+                    copy_db_from = source_db
+            await Build.deploy(commit_info, copy_db_from=copy_db_from)
 
     async def undeploy_builds(
         self,

@@ -54,7 +54,7 @@ def mount(app: FastAPI) -> None:
                         "additional_footer_html": settings.additional_footer_html,
                     }
                 )
-                (webui_path / path.name[:-6]).write_text(rendered)
+                (webui_path / path.name[:-6]).write_text(rendered, encoding="utf-8")
             else:
                 shutil.copy(path, webui_path / path.name)
     

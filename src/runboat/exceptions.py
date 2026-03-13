@@ -16,3 +16,7 @@ class NotFoundOnGitHub(ClientError):
 
 class RepoOrBranchNotSupported(ClientError):
     pass
+
+
+class NoPreviousBuildError(ClientError):
+    """No existe build previo del mismo branch/PR para copiar."""

@@ -13,6 +13,7 @@ oca_wait_for_postgres
 # Drop database, in case we are reinitializing.
 dropdb --if-exists ${PGDATABASE}
 dropdb --if-exists ${PGDATABASE}-baseonly
+dropdb --if-exists ${PGDATABASE}_lastdb
 
 ADDONS=$(manifestoo --select-addons-dir ${ADDONS_DIR} --select-include "${INCLUDE}" --select-exclude "${EXCLUDE}" list --separator=,)
 
@@ -37,3 +38,18 @@ unbuffer $(which odoo || which openerp-server) \
   -d ${PGDATABASE} \
   -i ${ADDONS:-base} \
   --stop-after-init || dropdb --if-exists ${PGDATABASE} && exit 0
+
+# Copy source DB to _lastdb if COPY_DB_FROM is set
+if [ -n "${COPY_DB_FROM:-}" ]; then
+  createdb -T template0 ${PGDATABASE}_lastdb
+  if pg_dump -Fc ${COPY_DB_FROM} | pg_restore -d ${PGDATABASE}_lastdb --no-owner --no-acl; then
+    # Update repo modules for compatibility with current commit
+    unbuffer $(which odoo || which openerp-server) \
+      --data-dir=/mnt/data/odoo-data-dir \
+      -d ${PGDATABASE}_lastdb \
+      -u ${ADDONS:-base} \
+      --stop-after-init || { dropdb --if-exists ${PGDATABASE}_lastdb; true; }
+  else
+    dropdb --if-exists ${PGDATABASE}_lastdb
+  fi
+fi

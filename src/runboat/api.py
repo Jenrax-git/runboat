@@ -10,9 +10,11 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.status import HTTP_404_NOT_FOUND
 
 from . import github, models
+from .constants import SOURCE_DB_USE_LAST
 from .controller import Controller, controller
 from .db import SortOrder
 from .deps import authenticated
+from .exceptions import NoPreviousBuildError
 
 router = APIRouter()
 
@@ -106,22 +108,56 @@ async def undeploy_builds(
     "/builds/trigger/branch",
     dependencies=[Depends(authenticated)],
 )
-async def trigger_branch(repo: str, branch: str) -> None:
+async def trigger_branch(
+    repo: str,
+    branch: str,
+    source_db: str | None = None,
+) -> None:
     """Trigger build for a branch."""
+    source_db = (source_db or "").strip() or None
+    if source_db and source_db != SOURCE_DB_USE_LAST:
+        if controller.db.get(source_db) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Build {source_db} not found.",
+            )
     commit_info = await github.get_branch_info(repo, branch)
     topics = await github.get_repo_topics(repo)
     commit_info = commit_info.model_copy(update={"topics": topics})
-    await controller.deploy_commit(commit_info)
+    try:
+        await controller.deploy_commit(commit_info, source_db=source_db)
+    except NoPreviousBuildError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.post(
     "/builds/trigger/pr",
     dependencies=[Depends(authenticated)],
 )
-async def trigger_pull(repo: str, pr: int) -> None:
+async def trigger_pull(
+    repo: str,
+    pr: int,
+    source_db: str | None = None,
+) -> None:
     """Trigger build for a pull request."""
+    source_db = (source_db or "").strip() or None
+    if source_db and source_db != SOURCE_DB_USE_LAST:
+        if controller.db.get(source_db) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Build {source_db} not found.",
+            )
     commit_info = await github.get_pull_info(repo, pr)
-    await controller.deploy_commit(commit_info)
+    try:
+        await controller.deploy_commit(commit_info, source_db=source_db)
+    except NoPreviousBuildError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 async def _build_by_name(name: str) -> models.Build:
