@@ -37,7 +37,7 @@ unbuffer $(which odoo || which openerp-server) \
   --db-template=template1 \
   -d ${PGDATABASE} \
   -i ${ADDONS:-base} \
-  --stop-after-init || dropdb --if-exists ${PGDATABASE} && exit 0
+  --stop-after-init || { dropdb --if-exists ${PGDATABASE} && exit 0; }
 
 # Copy source DB to _lastdb if COPY_DB_FROM is set
 echo "DEBUG: COPY_DB_FROM='${COPY_DB_FROM:-}'"
