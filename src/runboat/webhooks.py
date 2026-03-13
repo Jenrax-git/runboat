@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Header, Request
 
+from .constants import SOURCE_DB_TOPIC, SOURCE_DB_USE_LAST
 from .controller import controller
 from . import github
 from .github import CommitInfo
@@ -59,16 +60,22 @@ async def receive_payload(
                 _logger.debug("Topics not in webhook payload, fetching from API for %s", repo)
                 topics = await github.get_repo_topics(repo)
             _logger.debug("Deploying PR for %s with topics %s", repo, topics)
-            background_tasks.add_task(
-                controller.deploy_commit,
-                CommitInfo(
-                    repo=repo,
-                    target_branch=target_branch,
-                    pr=payload["pull_request"]["number"],
-                    git_commit=payload["pull_request"]["head"]["sha"],
-                    topics=topics,
-                ),
+            commit_info = CommitInfo(
+                repo=repo,
+                target_branch=target_branch,
+                pr=payload["pull_request"]["number"],
+                git_commit=payload["pull_request"]["head"]["sha"],
+                topics=topics,
             )
+            if SOURCE_DB_TOPIC in topics:
+                background_tasks.add_task(
+                    controller.deploy_commit,
+                    commit_info,
+                    source_db=SOURCE_DB_USE_LAST,
+                    source_db_required=False,
+                )
+            else:
+                background_tasks.add_task(controller.deploy_commit, commit_info)
         elif payload["action"] in ("closed",):
             background_tasks.add_task(
                 controller.undeploy_builds,
@@ -91,13 +98,19 @@ async def receive_payload(
             _logger.debug("Topics not in webhook payload, fetching from API for %s", repo)
             topics = await github.get_repo_topics(repo)
         _logger.debug("Deploying push for %s with topics %s", repo, topics)
-        background_tasks.add_task(
-            controller.deploy_commit,
-            CommitInfo(
-                repo=repo,
-                target_branch=target_branch,
-                pr=None,
-                git_commit=payload["after"],
-                topics=topics,
-            ),
+        commit_info = CommitInfo(
+            repo=repo,
+            target_branch=target_branch,
+            pr=None,
+            git_commit=payload["after"],
+            topics=topics,
         )
+        if SOURCE_DB_TOPIC in topics:
+            background_tasks.add_task(
+                controller.deploy_commit,
+                commit_info,
+                source_db=SOURCE_DB_USE_LAST,
+                source_db_required=False,
+            )
+        else:
+            background_tasks.add_task(controller.deploy_commit, commit_info)

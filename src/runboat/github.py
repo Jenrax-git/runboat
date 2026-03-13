@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from pydantic import BaseModel, field_validator
@@ -41,7 +41,7 @@ class CommitInfo(BaseModel):
 async def get_repo_topics(repo: str) -> list[str]:
     """Get repository topics from GitHub API. Used to detect Enterprise builds."""
     data = await _github_request("GET", f"/repos/{repo}")
-    return data.get("topics", [])
+    return cast(list[str], data.get("topics", []))
 
 
 async def get_branch_info(repo: str, branch: str) -> CommitInfo:

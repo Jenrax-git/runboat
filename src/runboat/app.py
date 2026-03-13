@@ -24,7 +24,7 @@ app = FastAPI(
 )
 
 @app.get("/", dependencies=[Depends(authenticated_ui)])
-async def root():
+async def root() -> RedirectResponse:
     """Redirect root to webui."""
     return RedirectResponse(url="/webui/builds.html")
 
