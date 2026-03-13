@@ -68,7 +68,8 @@ class BuildsDb:
             "    status TEXT NOT NULL, "
             "    init_status TEXT NOT NULL, "
             "    last_scaled TEXT NOT NULL, "
-            "    created TEXT NOT NULL"
+            "    created TEXT NOT NULL, "
+            "    copy_db_from TEXT"
             ")"
         )
         self._con.execute(
@@ -127,9 +128,10 @@ class BuildsDb:
                 "    status,"
                 "    init_status, "
                 "    last_scaled, "
-                "    created"
+                "    created,"
+                "    copy_db_from"
                 ") "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     build.name,
                     build.deployment_name,
@@ -143,6 +145,7 @@ class BuildsDb:
                     build.init_status,
                     build.last_scaled.isoformat(),
                     build.created.isoformat(),
+                    build.copy_db_from,
                 ),
             )
         if prev_build is None:
