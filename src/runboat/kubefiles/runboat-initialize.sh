@@ -40,16 +40,23 @@ unbuffer $(which odoo || which openerp-server) \
   --stop-after-init || dropdb --if-exists ${PGDATABASE} && exit 0
 
 # Copy source DB to _lastdb if COPY_DB_FROM is set
+echo "DEBUG: COPY_DB_FROM='${COPY_DB_FROM:-}'"
 if [ -n "${COPY_DB_FROM:-}" ]; then
+  echo "Copying database from ${COPY_DB_FROM} to ${PGDATABASE}_lastdb..."
   createdb -T template0 ${PGDATABASE}_lastdb
   if pg_dump -Fc ${COPY_DB_FROM} | pg_restore -d ${PGDATABASE}_lastdb --no-owner --no-acl; then
-    # Update repo modules for compatibility with current commit
-    unbuffer $(which odoo || which openerp-server) \
+    echo "Copy succeeded. Updating modules for compatibility with current commit..."
+    if unbuffer $(which odoo || which openerp-server) \
       --data-dir=/mnt/data/odoo-data-dir \
       -d ${PGDATABASE}_lastdb \
       -u ${ADDONS:-base} \
-      --stop-after-init || { dropdb --if-exists ${PGDATABASE}_lastdb; true; }
+      --stop-after-init; then
+      echo "Module update succeeded for ${PGDATABASE}_lastdb."
+    else
+      echo "WARNING: Module update failed for ${PGDATABASE}_lastdb. Keeping database as-is (may need manual update)."
+    fi
   else
+    echo "ERROR: pg_dump/pg_restore from ${COPY_DB_FROM} failed. Dropping ${PGDATABASE}_lastdb."
     dropdb --if-exists ${PGDATABASE}_lastdb
   fi
 fi
