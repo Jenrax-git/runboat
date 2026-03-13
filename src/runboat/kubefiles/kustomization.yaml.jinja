@@ -5,6 +5,11 @@ resources:
   - service.yaml
   - ingress_odoo.yaml
   - ingress_mailhog.yaml
+  {%- elif mode == 'redeploy' %}
+  - deployment.yaml
+  - service.yaml
+  - ingress_odoo.yaml
+  - ingress_mailhog.yaml
   {%- elif mode == "initialize" %}
   - pvc.yaml
   - initialize.yaml
@@ -28,6 +33,9 @@ commonAnnotations:
   runboat/pr: "{{ commit_info.pr if commit_info.pr else '' }}"
   runboat/git-commit: "{{ commit_info.git_commit }}"
   runboat/topics: '{{ commit_info.topics | tojson }}'
+  {%- if copy_db_from %}
+  runboat/copy-db-from: "{{ copy_db_from }}"
+  {%- endif %}
 
 images:
   - name: odoo
@@ -54,6 +62,10 @@ configMapGenerator:
       {%- for key, value in build_env.items() %}
       - {{ key }}={{ value }}
       {%- endfor %}
+      {%- if copy_db_from %}
+      - COPY_DB_FROM={{ copy_db_from }}
+      - DB_FILTER={{ db_filter }}
+      {%- endif %}
   - name: runboat-scripts
     files:
       - runboat-clone-and-install.sh
