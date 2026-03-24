@@ -40,7 +40,6 @@ unbuffer $(which odoo || which openerp-server) \
   --stop-after-init || { dropdb --if-exists ${PGDATABASE} && exit 0; }
 
 # Copy source DB to _lastdb if COPY_DB_FROM is set
-echo "DEBUG: COPY_DB_FROM='${COPY_DB_FROM:-}'"
 if [ -n "${COPY_DB_FROM:-}" ]; then
   echo "Copying database from ${COPY_DB_FROM} to ${PGDATABASE}_lastdb..."
   createdb -T template0 ${PGDATABASE}_lastdb

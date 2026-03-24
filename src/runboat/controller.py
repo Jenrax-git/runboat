@@ -141,6 +141,14 @@ class Controller:
                             "No se encontró ningún build previo para este branch/PR. "
                             "Deje source_db vacío o proporcione el nombre de una DB existente."
                         )
+                    else:
+                        _logger.warning(
+                            "No previous build in DB for repo=%s target_branch=%s pr=%s; "
+                            "deploying without COPY_DB_FROM (first push on this PR or search mismatch).",
+                            commit_info.repo,
+                            commit_info.target_branch,
+                            commit_info.pr,
+                        )
                 else:
                     copy_db_from = source_db
             await Build.deploy(commit_info, copy_db_from=copy_db_from)
