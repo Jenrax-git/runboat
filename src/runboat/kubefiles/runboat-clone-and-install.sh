@@ -64,11 +64,11 @@ fi
 # Install.
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
-    oca_install_addons
-    # Add Enterprise to addons_path if cloned (replace, do not append - avoids DuplicateOptionError)
+    # Enterprise must be on addons_path *before* oca_install_addons so manifest
     if [[ -n "${ENTERPRISE_DIR:-}" ]]; then
         sed -i "s|^addons_path=.*|addons_path=${ADDONS_PATH},${ENTERPRISE_DIR},${ADDONS_DIR}|" ${ODOO_RC}
     fi
+    oca_install_addons
     #TODO: This is here because oca_install_addons does not install the requirements for our modules
     # for the addons investigate why not
     if [ -f requirements.txt ]; then
