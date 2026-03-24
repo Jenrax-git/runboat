@@ -64,11 +64,21 @@ fi
 # Install.
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
-    # Enterprise must be on addons_path *before* oca_install_addons so manifest
+    # Enterprise + OCA: oca_install_addons appends addons_path from $ADDONS_PATH only; it
     if [[ -n "${ENTERPRISE_DIR:-}" ]]; then
-        sed -i "s|^addons_path=.*|addons_path=${ADDONS_PATH},${ENTERPRISE_DIR},${ADDONS_DIR}|" ${ODOO_RC}
+        : "${ADDONS_PATH:=/opt/odoo/addons}"
+        if [[ ",${ADDONS_PATH}," == *",${ENTERPRISE_DIR},"* ]]; then
+            RUNBOAT_ADDONS_PATH="${ADDONS_PATH}"
+        else
+            RUNBOAT_ADDONS_PATH="${ADDONS_PATH},${ENTERPRISE_DIR}"
+        fi
+        RUNBOAT_FULL_PATH="${RUNBOAT_ADDONS_PATH},${ADDONS_DIR}"
+        sed -i "s|^addons_path=.*|addons_path=${RUNBOAT_FULL_PATH}|" ${ODOO_RC}
+        env ADDONS_PATH="${RUNBOAT_ADDONS_PATH}" oca_install_addons
+        sed -i "s|^addons_path=.*|addons_path=${RUNBOAT_FULL_PATH}|" ${ODOO_RC}
+    else
+        oca_install_addons
     fi
-    oca_install_addons
     #TODO: This is here because oca_install_addons does not install the requirements for our modules
     # for the addons investigate why not
     if [ -f requirements.txt ]; then
