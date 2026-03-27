@@ -289,9 +289,16 @@ class Build(BaseModel):
         # to remove the deployment.
         await k8s.delete_deployment(self.deployment_name)
 
-    async def redeploy(self) -> None:
-        """Redeploy a build, to reinitialize it."""
+    async def redeploy(self, copy_db_from: str | None = None) -> None:
+        """Redeploy a build, to reinitialize it.
+
+        If copy_db_from is provided, it overrides the build's existing copy_db_from,
+        allowing re-initialization with a different source database.
+        """
         _logger.info(f"Redeploying {self}.")
+        effective_copy_db_from = (
+            copy_db_from if copy_db_from is not None else self.copy_db_from
+        )
         await k8s.kill_job(self.name, job_kind=k8s.DeploymentMode.cleanup)
         await k8s.kill_job(self.name, job_kind=k8s.DeploymentMode.initialize)
         await self._deploy(
@@ -299,7 +306,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.deployment,
-            copy_db_from=self.copy_db_from,
+            copy_db_from=effective_copy_db_from,
         )
         await github.notify_status(
             self.commit_info.repo,
