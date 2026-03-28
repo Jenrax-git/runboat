@@ -305,7 +305,7 @@ class Build(BaseModel):
             self.commit_info,
             self.name,
             self.slug,
-            job_kind=k8s.DeploymentMode.redeploy,
+            job_kind=k8s.DeploymentMode.deployment,
             copy_db_from=effective_copy_db_from,
         )
         await github.notify_status(
