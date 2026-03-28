@@ -10,6 +10,20 @@ bash /runboat/runboat-clone-and-install.sh
 
 oca_wait_for_postgres
 
+# If COPY_DB_FROM points to the current database (redeploy case), snapshot it
+# before wiping so _lastdb ends up with the pre-reinit data, not the fresh install.
+_COPY_DB_SNAPSHOT=""
+if [ -n "${COPY_DB_FROM:-}" ] && [ "${COPY_DB_FROM}" = "${PGDATABASE}" ]; then
+  echo "COPY_DB_FROM is self; snapshotting ${PGDATABASE} before reinit..."
+  if createdb -T ${PGDATABASE} ${PGDATABASE}_snapshot 2>/dev/null; then
+    _COPY_DB_SNAPSHOT=${PGDATABASE}_snapshot
+    COPY_DB_FROM=${PGDATABASE}_snapshot
+  else
+    echo "No existing DB to snapshot (first init?), skipping _lastdb copy."
+    COPY_DB_FROM=""
+  fi
+fi
+
 # Drop database, in case we are reinitializing.
 dropdb --if-exists ${PGDATABASE}
 dropdb --if-exists ${PGDATABASE}-baseonly
@@ -42,8 +56,19 @@ unbuffer $(which odoo || which openerp-server) \
 # Copy source DB to _lastdb if COPY_DB_FROM is set
 if [ -n "${COPY_DB_FROM:-}" ]; then
   echo "Copying database from ${COPY_DB_FROM} to ${PGDATABASE}_lastdb..."
-  createdb -T template0 ${PGDATABASE}_lastdb
-  if pg_dump -Fc ${COPY_DB_FROM} | pg_restore -d ${PGDATABASE}_lastdb --no-owner --no-acl; then
+  # createdb -T requires no active connections on the source DB.
+  # Terminate them and retry up to 3 times to handle Odoo reconnects.
+  _copy_ok=0
+  for _attempt in 1 2 3; do
+    psql postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${COPY_DB_FROM}' AND pid <> pg_backend_pid();" 2>/dev/null || true
+    if createdb -T ${COPY_DB_FROM} ${PGDATABASE}_lastdb 2>/dev/null; then
+      _copy_ok=1
+      break
+    fi
+    echo "Attempt ${_attempt} failed (active connections?), retrying in 3s..."
+    sleep 3
+  done
+  if [ ${_copy_ok} -eq 1 ]; then
     echo "Copy succeeded. Updating modules for compatibility with current commit..."
     if unbuffer $(which odoo || which openerp-server) \
       --data-dir=/mnt/data/odoo-data-dir \
@@ -55,7 +80,12 @@ if [ -n "${COPY_DB_FROM:-}" ]; then
       echo "WARNING: Module update failed for ${PGDATABASE}_lastdb. Keeping database as-is (may need manual update)."
     fi
   else
-    echo "ERROR: pg_dump/pg_restore from ${COPY_DB_FROM} failed. Dropping ${PGDATABASE}_lastdb."
+    echo "ERROR: Copy from ${COPY_DB_FROM} failed after 3 attempts. Dropping ${PGDATABASE}_lastdb."
     dropdb --if-exists ${PGDATABASE}_lastdb
   fi
+fi
+
+# Clean up pre-reinit snapshot if one was made
+if [ -n "${_COPY_DB_SNAPSHOT}" ]; then
+  dropdb --if-exists ${_COPY_DB_SNAPSHOT}
 fi

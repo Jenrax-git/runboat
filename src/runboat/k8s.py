@@ -136,7 +136,6 @@ def watch_jobs() -> Generator[V1Job]:
 
 class DeploymentMode(str, Enum):
     deployment = "deployment"
-    redeploy = "redeploy"  # like deployment but skips PVC (already exists)
     initialize = "initialize"
     cleanup = "cleanup"
     start = "start"
