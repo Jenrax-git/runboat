@@ -10,6 +10,20 @@ bash /runboat/runboat-clone-and-install.sh
 
 oca_wait_for_postgres
 
+# If COPY_DB_FROM points to the current database (redeploy case), snapshot it
+# before wiping so _lastdb ends up with the pre-reinit data, not the fresh install.
+_COPY_DB_SNAPSHOT=""
+if [ -n "${COPY_DB_FROM:-}" ] && [ "${COPY_DB_FROM}" = "${PGDATABASE}" ]; then
+  echo "COPY_DB_FROM is self; snapshotting ${PGDATABASE} before reinit..."
+  if createdb -T ${PGDATABASE} ${PGDATABASE}_snapshot 2>/dev/null; then
+    _COPY_DB_SNAPSHOT=${PGDATABASE}_snapshot
+    COPY_DB_FROM=${PGDATABASE}_snapshot
+  else
+    echo "No existing DB to snapshot (first init?), skipping _lastdb copy."
+    COPY_DB_FROM=""
+  fi
+fi
+
 # Drop database, in case we are reinitializing.
 dropdb --if-exists ${PGDATABASE}
 dropdb --if-exists ${PGDATABASE}-baseonly
@@ -54,7 +68,12 @@ if [ -n "${COPY_DB_FROM:-}" ]; then
       echo "WARNING: Module update failed for ${PGDATABASE}_lastdb. Keeping database as-is (may need manual update)."
     fi
   else
-    echo "ERROR: pg_dump/pg_restore from ${COPY_DB_FROM} failed. Dropping ${PGDATABASE}_lastdb."
+    echo "ERROR: Copy from ${COPY_DB_FROM} failed. Dropping ${PGDATABASE}_lastdb."
     dropdb --if-exists ${PGDATABASE}_lastdb
   fi
+fi
+
+# Clean up pre-reinit snapshot if one was made
+if [ -n "${_COPY_DB_SNAPSHOT}" ]; then
+  dropdb --if-exists ${_COPY_DB_SNAPSHOT}
 fi
