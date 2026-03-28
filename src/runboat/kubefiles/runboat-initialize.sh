@@ -42,8 +42,7 @@ unbuffer $(which odoo || which openerp-server) \
 # Copy source DB to _lastdb if COPY_DB_FROM is set
 if [ -n "${COPY_DB_FROM:-}" ]; then
   echo "Copying database from ${COPY_DB_FROM} to ${PGDATABASE}_lastdb..."
-  createdb -T template0 ${PGDATABASE}_lastdb
-  if pg_dump -Fc ${COPY_DB_FROM} | pg_restore -d ${PGDATABASE}_lastdb --no-owner --no-acl; then
+  if createdb -T ${COPY_DB_FROM} ${PGDATABASE}_lastdb; then
     echo "Copy succeeded. Updating modules for compatibility with current commit..."
     if unbuffer $(which odoo || which openerp-server) \
       --data-dir=/mnt/data/odoo-data-dir \
