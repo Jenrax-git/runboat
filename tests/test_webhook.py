@@ -11,6 +11,7 @@ client = TestClient(app)
 
 
 def test_webhook_github_push(mocker: MockerFixture) -> None:
+    mocker.patch("runboat.webhooks.github.get_repo_topics", return_value=[])
     mock = mocker.patch("fastapi.BackgroundTasks.add_task")
     response = client.post(
         "/webhooks/github",
@@ -31,6 +32,7 @@ def test_webhook_github_push(mocker: MockerFixture) -> None:
             target_branch="15.0",
             pr=None,
             git_commit="abcde",
+            topics=[],
         ),
     )
 
@@ -54,6 +56,7 @@ def test_webhook_github_push_unsupported_repo(mocker: MockerFixture) -> None:
 
 @pytest.mark.parametrize("action", ["opened", "synchronize"])
 def test_webhook_github_pr(action: str, mocker: MockerFixture) -> None:
+    mocker.patch("runboat.webhooks.github.get_repo_topics", return_value=[])
     mock = mocker.patch("fastapi.BackgroundTasks.add_task")
     response = client.post(
         "/webhooks/github",
@@ -82,6 +85,7 @@ def test_webhook_github_pr(action: str, mocker: MockerFixture) -> None:
             target_branch="15.0",
             pr=381,
             git_commit="abcde",
+            topics=[],
         ),
     )
 

@@ -1,8 +1,6 @@
 import shutil
 from importlib import resources
 from pathlib import Path
-from typing import Optional
-
 import jinja2
 from fastapi import APIRouter, FastAPI, HTTPException, Response, status, Depends, Request
 from fastapi.responses import RedirectResponse, FileResponse
@@ -14,6 +12,8 @@ from .models import BuildStatus
 from .settings import settings
 
 router = APIRouter()
+
+_webui_path: Path | None = None
 
 
 FOOTER_HTML = """\
@@ -54,12 +54,12 @@ def mount(app: FastAPI) -> None:
                         "additional_footer_html": settings.additional_footer_html,
                     }
                 )
-                (webui_path / path.name[:-6]).write_text(rendered)
+                (webui_path / path.name[:-6]).write_text(rendered, encoding="utf-8")
             else:
                 shutil.copy(path, webui_path / path.name)
-    
-    # Store the webui path for use in the authenticated static file handler
-    mount.webui_path = webui_path
+
+    global _webui_path
+    _webui_path = webui_path
 
 
 @router.get(
@@ -98,12 +98,12 @@ async def build(
 
 
 @router.get("/webui/{path:path}", dependencies=[Depends(authenticated_ui)])
-async def serve_static_file(path: str):
+async def serve_static_file(path: str) -> FileResponse:
     """Serve static files with authentication."""
-    if not hasattr(mount, 'webui_path'):
+    if _webui_path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    
-    file_path = mount.webui_path / path
+
+    file_path = _webui_path / path
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     

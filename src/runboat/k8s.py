@@ -154,6 +154,8 @@ class DeploymentVars(BaseModel):
     build_env: dict[str, str]
     build_secret_env: dict[str, str]
     build_template_vars: dict[str, str]
+    copy_db_from: str | None = None
+    db_filter: str | None = None
 
 
 def make_deployment_vars(
@@ -162,8 +164,24 @@ def make_deployment_vars(
     slug: str,
     commit_info: CommitInfo,
     build_settings: BuildSettings,
+    copy_db_from: str | None = None,
 ) -> DeploymentVars:
     image_name, image_tag = _split_image_name_tag(build_settings.image)
+    build_env = settings.build_env | build_settings.env
+    # If repo has "enterprise" topic, add Enterprise addons for the build
+    if "enterprise" in commit_info.topics:
+        _logger.info(
+            "Adding Odoo Enterprise addons for %s (repo has 'enterprise' topic)",
+            slug,
+        )
+        build_env = {
+            **build_env,
+            "ENTERPRISE_DIR": "/mnt/data/enterprise-addons",
+            "RUNBOAT_TARGET_BRANCH": commit_info.target_branch,
+        }
+    db_filter: str | None = None
+    if copy_db_from:
+        db_filter = f"^({build_name}|{build_name}-baseonly|{build_name}_lastdb)$"
     return DeploymentVars(
         mode=mode,
         namespace=settings.build_namespace,
@@ -173,9 +191,11 @@ def make_deployment_vars(
         commit_info=commit_info,
         image_name=image_name,
         image_tag=image_tag,
-        build_env=settings.build_env | build_settings.env,
+        build_env=build_env,
         build_secret_env=settings.build_secret_env | build_settings.secret_env,
         build_template_vars=settings.build_template_vars | build_settings.template_vars,
+        copy_db_from=copy_db_from,
+        db_filter=db_filter,
     )
 
 

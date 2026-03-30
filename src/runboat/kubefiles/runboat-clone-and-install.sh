@@ -50,10 +50,35 @@ rm -rf "$TEMP_DIR"
 
 cd $ADDONS_DIR
 
+# Clone Odoo Enterprise if repo has "enterprise" topic
+if [[ -n "${ENTERPRISE_DIR:-}" ]]; then
+    rm -fr "$ENTERPRISE_DIR"
+    mkdir -p "$ENTERPRISE_DIR"
+    curl -sSL \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/odoo/enterprise/tarball/${RUNBOAT_TARGET_BRANCH:-${RUNBOAT_GIT_REF}}" \
+        | tar zxf - --strip-components=1 -C "$ENTERPRISE_DIR"
+fi
+
 # Install.
 INSTALL_METHOD=${INSTALL_METHOD:-oca_install_addons}
 if [[ "${INSTALL_METHOD}" == "oca_install_addons" ]] ; then
-    oca_install_addons
+    # Enterprise + OCA: oca_install_addons appends addons_path from $ADDONS_PATH only; it
+    if [[ -n "${ENTERPRISE_DIR:-}" ]]; then
+        : "${ADDONS_PATH:=/opt/odoo/addons}"
+        if [[ ",${ADDONS_PATH}," == *",${ENTERPRISE_DIR},"* ]]; then
+            RUNBOAT_ADDONS_PATH="${ADDONS_PATH}"
+        else
+            RUNBOAT_ADDONS_PATH="${ADDONS_PATH},${ENTERPRISE_DIR}"
+        fi
+        RUNBOAT_FULL_PATH="${RUNBOAT_ADDONS_PATH},${ADDONS_DIR}"
+        sed -i "s|^addons_path=.*|addons_path=${RUNBOAT_FULL_PATH}|" ${ODOO_RC}
+        env ADDONS_PATH="${RUNBOAT_ADDONS_PATH}" oca_install_addons
+        sed -i "s|^addons_path=.*|addons_path=${RUNBOAT_FULL_PATH}|" ${ODOO_RC}
+    else
+        oca_install_addons
+    fi
     #TODO: This is here because oca_install_addons does not install the requirements for our modules
     # for the addons investigate why not
     if [ -f requirements.txt ]; then

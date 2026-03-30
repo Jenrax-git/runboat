@@ -9,7 +9,7 @@ from typing import Any
 _pool = ThreadPoolExecutor(max_workers=20, thread_name_prefix="sync_to_async")
 
 
-def slugify(s: str | int, max_length=0) -> str:
+def slugify(s: str | int, max_length: int = 0) -> str:
     _slug = re.sub(r"[^a-z0-9]", "-", str(s).lower())
     if max_length > 0:
         _slug = _slug[:max_length]
