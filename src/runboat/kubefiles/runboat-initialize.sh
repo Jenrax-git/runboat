@@ -74,7 +74,17 @@ if [ -n "${COPY_DB_FROM:-}" ]; then
     sleep 3
   done
   if [ ${_copy_ok} -eq 1 ]; then
-    echo "Copy succeeded. Updating modules for compatibility with current commit..."
+    echo "Copy succeeded. Clearing asset bundle cache so Odoo regenerates them for the new filestore..."
+    # Asset bundle files live in the source build's PVC filestore, which is inaccessible
+    # from this pod. Deleting these ir.attachment records forces Odoo to regenerate
+    # the assets during the module update below. Business record attachments (res_model
+    # != 'ir.ui.view') are not touched.
+    psql ${PGDATABASE}_lastdb -c "
+      DELETE FROM ir_attachment
+      WHERE store_fname IS NOT NULL
+        AND (res_model IS NULL OR res_model = 'ir.ui.view');
+    " 2>/dev/null || true
+    echo "Updating modules for compatibility with current commit..."
     if unbuffer $(which odoo || which openerp-server) \
       --data-dir=/mnt/data/odoo-data-dir \
       -d ${PGDATABASE}_lastdb \
