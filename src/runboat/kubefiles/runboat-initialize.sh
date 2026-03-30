@@ -55,6 +55,11 @@ unbuffer $(which odoo || which openerp-server) \
 
 # Copy source DB to _lastdb if COPY_DB_FROM is set
 if [ -n "${COPY_DB_FROM:-}" ]; then
+  # Prefer _lastdb of the source build (has preserved user data) over its fresh install.
+  if psql postgres -lqt 2>/dev/null | cut -d'|' -f1 | grep -qw "${COPY_DB_FROM}_lastdb"; then
+    echo "Found ${COPY_DB_FROM}_lastdb, using it as copy source to preserve user data."
+    COPY_DB_FROM="${COPY_DB_FROM}_lastdb"
+  fi
   echo "Copying database from ${COPY_DB_FROM} to ${PGDATABASE}_lastdb..."
   # createdb -T requires no active connections on the source DB.
   # Terminate them and retry up to 3 times to handle Odoo reconnects.
