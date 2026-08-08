@@ -15,6 +15,17 @@ mkdir -p $ADDONS_DIR
 # Configure git to use the GitHub token for authentication
 git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
+# Configure pip to authenticate against raw.githubusercontent.com, needed to
+# fetch wheels from our private wheelhouse index (jenrax-git.github.io/wheelhouse/).
+# git's url.insteadOf above does not apply here: pip downloads wheel files
+# directly over HTTPS, it does not go through git.
+cat >> ~/.netrc <<EOF
+machine raw.githubusercontent.com
+login x-access-token
+password ${GITHUB_TOKEN}
+EOF
+chmod 600 ~/.netrc
+
 # Download to a temporary directory first
 TEMP_DIR=$(mktemp -d)
 curl -sSL \
