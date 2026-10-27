@@ -12,8 +12,15 @@ rm -fr $ADDONS_DIR
 # We use curl instead of git clone because the git clone method used more than 1GB RAM,
 # which exceeded the default pod memory limit.
 mkdir -p $ADDONS_DIR
-# Configure git to use the GitHub token for authentication
-git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+# Don't leak the token in the xtrace output.
+set +x
+# Configure git to use the GitHub token for authentication.
+# We send it as an http header instead of embedding it in the URL with
+# url.insteadOf: git drops credentials embedded in the URL when it detects a
+# "redirect", so subsequent requests to private repos fail with
+# "could not read Username".
+GITHUB_AUTH_HEADER="Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w0)"
+git config --global http.https://github.com/.extraheader "${GITHUB_AUTH_HEADER}"
 
 # Configure pip to authenticate against raw.githubusercontent.com, needed to
 # fetch wheels from our private wheelhouse index (jenrax-git.github.io/wheelhouse/).
@@ -33,6 +40,7 @@ curl -sSL \
     -H "Accept: application/vnd.github.v3+json" \
     "https://api.github.com/repos/${RUNBOAT_GIT_REPO}/tarball/${RUNBOAT_GIT_REF}" \
     | tar zxf - --strip-components=1 -C $TEMP_DIR
+set -x
 
 
 # Check if it's a single module or a collection of modules
