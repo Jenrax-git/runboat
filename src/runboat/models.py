@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import uuid
 from enum import Enum
@@ -13,6 +14,17 @@ from .settings import settings
 from .utils import slugify
 
 _logger = logging.getLogger(__name__)
+
+
+def _topics_from_annotation(value: str | None) -> list[str]:
+    """Parse topics from deployment annotation (JSON array)."""
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        return list(parsed) if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 class BuildEvent(str, Enum):
@@ -48,6 +60,7 @@ class Build(BaseModel):
     desired_replicas: int
     last_scaled: datetime.datetime
     created: datetime.datetime
+    copy_db_from: str | None = None
 
     def __str__(self) -> str:
         return f"{self.slug} ({self.name})"
@@ -75,6 +88,15 @@ class Build(BaseModel):
 
     @classmethod
     def from_deployment(cls, deployment: V1Deployment) -> "Build":
+        topics = _topics_from_annotation(
+            deployment.metadata.annotations.get("runboat/topics")
+        )
+        _logger.debug(
+            "Build.from_deployment %s: runboat/topics=%s -> topics=%s",
+            deployment.metadata.name,
+            deployment.metadata.annotations.get("runboat/topics"),
+            topics,
+        )
         return Build(
             name=deployment.metadata.labels["runboat/build"],
             deployment_name=deployment.metadata.name,
@@ -83,6 +105,7 @@ class Build(BaseModel):
                 target_branch=deployment.metadata.annotations["runboat/target-branch"],
                 pr=deployment.metadata.annotations.get("runboat/pr") or None,
                 git_commit=deployment.metadata.annotations["runboat/git-commit"],
+                topics=topics,
             ),
             init_status=deployment.metadata.annotations["runboat/init-status"],
             status=cls._status_from_deployment(deployment),
@@ -90,6 +113,8 @@ class Build(BaseModel):
             last_scaled=deployment.metadata.annotations.get("runboat/last-scaled")
             or deployment.metadata.creation_timestamp,
             created=deployment.metadata.creation_timestamp,
+            copy_db_from=deployment.metadata.annotations.get("runboat/copy-db-from")
+            or None,
         )
 
     @classmethod
@@ -178,7 +203,12 @@ class Build(BaseModel):
 
     @classmethod
     async def _deploy(
-        cls, commit_info: CommitInfo, name: str, slug: str, job_kind: k8s.DeploymentMode
+        cls,
+        commit_info: CommitInfo,
+        name: str,
+        slug: str,
+        job_kind: k8s.DeploymentMode,
+        copy_db_from: str | None = None,
     ) -> None:
         """Internal method to prepare for and handle a k8s.deploy()."""
         build_settings = settings.get_build_settings(
@@ -193,17 +223,27 @@ class Build(BaseModel):
             slug,
             commit_info,
             build_settings,
+            copy_db_from=copy_db_from,
         )
         await k8s.deploy(kubefiles_path, deployment_vars)
 
     @classmethod
-    async def deploy(cls, commit_info: CommitInfo) -> None:
+    async def deploy(
+        cls,
+        commit_info: CommitInfo,
+        copy_db_from: str | None = None,
+    ) -> None:
         """Deploy a build, without starting it."""
         name = f"b{uuid.uuid4()}"
         slug = cls.make_slug(commit_info)
-        _logger.info(f"Deploying {slug} ({name}).")
+        enterprise_note = " [enterprise]" if "enterprise" in commit_info.topics else ""
+        _logger.info(f"Deploying {slug} ({name}){enterprise_note}.")
         await cls._deploy(
-            commit_info, name, slug, job_kind=k8s.DeploymentMode.deployment
+            commit_info,
+            name,
+            slug,
+            job_kind=k8s.DeploymentMode.deployment,
+            copy_db_from=copy_db_from,
         )
         await github.notify_status(
             commit_info.repo,
@@ -223,6 +263,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.start,
+            copy_db_from=self.copy_db_from,
         )
         await self._patch(desired_replicas=1)
 
@@ -237,6 +278,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.stop,
+            copy_db_from=self.copy_db_from,
         )
 
     async def undeploy(self) -> None:
@@ -247,9 +289,16 @@ class Build(BaseModel):
         # to remove the deployment.
         await k8s.delete_deployment(self.deployment_name)
 
-    async def redeploy(self) -> None:
-        """Redeploy a build, to reinitialize it."""
+    async def redeploy(self, copy_db_from: str | None = None) -> None:
+        """Redeploy a build, to reinitialize it.
+
+        If copy_db_from is provided, it overrides the build's existing copy_db_from,
+        allowing re-initialization with a different source database.
+        """
         _logger.info(f"Redeploying {self}.")
+        effective_copy_db_from = (
+            copy_db_from if copy_db_from is not None else self.copy_db_from
+        )
         await k8s.kill_job(self.name, job_kind=k8s.DeploymentMode.cleanup)
         await k8s.kill_job(self.name, job_kind=k8s.DeploymentMode.initialize)
         await self._deploy(
@@ -257,6 +306,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.deployment,
+            copy_db_from=effective_copy_db_from,
         )
         await github.notify_status(
             self.commit_info.repo,
@@ -269,12 +319,18 @@ class Build(BaseModel):
         """Launch the initialization job."""
         # Start initialization job. on_initialize_{started,succeeded,failed} callbacks
         # will follow from job events.
+        _logger.debug(
+            "Deploying initialize job for %s with topics %s",
+            self,
+            self.commit_info.topics,
+        )
         _logger.info(f"Deploying initialize job for {self}.")
         await self._deploy(
             self.commit_info,
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.initialize,
+            copy_db_from=self.copy_db_from,
         )
 
     async def _delete_deployment_resources(self) -> None:
@@ -297,7 +353,11 @@ class Build(BaseModel):
         # from job events.
         _logger.info(f"Deploying cleanup job for {self}.")
         await self._deploy(
-            self.commit_info, self.name, self.slug, job_kind=k8s.DeploymentMode.cleanup
+            self.commit_info,
+            self.name,
+            self.slug,
+            job_kind=k8s.DeploymentMode.cleanup,
+            copy_db_from=self.copy_db_from,
         )
 
     async def on_initialize_started(self) -> None:
@@ -323,6 +383,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.stop,
+            copy_db_from=self.copy_db_from,
         )
         if await self._patch(init_status=BuildInitStatus.succeeded):
             await github.notify_status(
@@ -343,6 +404,7 @@ class Build(BaseModel):
             self.name,
             self.slug,
             job_kind=k8s.DeploymentMode.stop,
+            copy_db_from=self.copy_db_from,
         )
         if await self._patch(init_status=BuildInitStatus.failed, desired_replicas=0):
             await github.notify_status(

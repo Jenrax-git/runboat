@@ -14,6 +14,7 @@ def _make_build(
     repo: str | None = None,
     target_branch: str | None = None,
     pr: int | None = None,
+    topics: list[str] | None = None,
     last_scaled: datetime.datetime | None = None,
     created: datetime.datetime | None = None,
 ) -> Build:
@@ -26,6 +27,7 @@ def _make_build(
             target_branch=target_branch or "15.0",
             pr=pr or None,
             git_commit="0d35a10f161b410f2baa3d416a338d191b6dabc0",
+            topics=topics or [],
         ),
         status=status or BuildStatus.starting,
         init_status=init_status or BuildInitStatus.todo,
@@ -58,6 +60,16 @@ def test_remove() -> None:
     db.add(build)
     db.remove(build.name)
     listener.on_build_event.assert_called()
+
+
+def test_topics_persisted() -> None:
+    """Topics are stored and restored when reading from db."""
+    db = BuildsDb()
+    build = _make_build(name="b1", topics=["enterprise", "odoo"])
+    db.add(build)
+    retrieved = db.get(build.name)
+    assert retrieved is not None
+    assert retrieved.commit_info.topics == ["enterprise", "odoo"]
 
 
 def test_get_for_commit() -> None:
