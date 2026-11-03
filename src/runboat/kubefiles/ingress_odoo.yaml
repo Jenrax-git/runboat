@@ -6,7 +6,6 @@ metadata:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod-wildcard"
     # Increase timeouts for long-running operations (e.g., ECF certificate processing)
     nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
@@ -16,7 +15,7 @@ spec:
   tls:
     - hosts:
         - "{{ build_slug }}.{{ build_domain }}"
-      secretName: runboat-wildcard-cert
+      secretName: runboat-wildcard-tls  # shared wildcard, see 07-builds-certs.yaml
   rules:
     - http:
         paths:

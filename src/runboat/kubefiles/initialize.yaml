@@ -10,6 +10,7 @@ spec:
       labels:
         runboat/job-kind: initialize
     spec:
+      priorityClassName: runboat-builds
       enableServiceLinks: false
       containers:
         - name: initialize

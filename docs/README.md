@@ -1,47 +1,24 @@
-# Project Documentation
+# Jenrax documentation
 
-This folder contains the documentation for the runboat-app project.
+This fork contains the runboat **code** only: the controller and the build kubefiles
+(`src/runboat/kubefiles/`).
 
-## Available Documents
+Building the `runboat-app` image, releasing and deploying it to Kubernetes is done from the
+private infrastructure repository **Jenrax-git/runboat-jenrax**, which includes this repository
+as a git submodule pinned to the released commit.
 
-### 📋 [DIGITAL_OCEAN_REGISTRY_SETUP.md](./DIGITAL_OCEAN_REGISTRY_SETUP.md)
-Complete guide to configure Docker build automation with Digital Ocean Container Registry and GitHub Actions, including tag management.
+## Development workflow
 
-**Includes:**
-- Container Registry Setup
-- Access Token Creation
-- GitHub Secrets Configuration
-- GitHub Actions Workflow
-- Automatic Tag System
-- Version Management (SemVer)
-- Using Images in Kubernetes
-- Deployment Strategies
-- Troubleshooting
+1. Work on a feature branch, open a PR against `main-jenrax`; the `CI` workflow runs the tests.
+2. Merge into `main-jenrax`.
+3. Release: in `runboat-jenrax`, update the submodule to the new commit, commit, and push a
+   `vX.Y.Z` tag (see its README).
 
-## Development Workflow
+## Build kubefiles
 
-1. **Initial Setup**: Follow [DIGITAL_OCEAN_REGISTRY_SETUP.md](./DIGITAL_OCEAN_REGISTRY_SETUP.md)
-2. **Daily Development**: Work on the `main-jenrax` branch
-3. **Version Management**: Check the tags section in the main document
-4. **Deployment**: Use appropriate tags according to environment
+The kubefiles expect, in the target cluster:
 
-## Quick Commands
-
-```bash
-# View available tags
-doctl registry repository list-tags runboat-app
-
-# Create new version
-git tag -a v1.0.0 -m "Release version 1.0.0"
-git push origin v1.0.0
-
-# Update deployment
-kubectl set image deployment/runboat-app runboat-app=registry.digitalocean.com/jenrax-registry/runboat-app:1.0.0
-```
-
-## Useful Links
-
-- [Digital Ocean Container Registry](https://cloud.digitalocean.com/registry)
-- [GitHub Actions](https://github.com/features/actions)
-- [Semantic Versioning](https://semver.org/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- a storage class with `ReadWriteMany` support, passed as `storageClassName` in
+  `RUNBOAT_BUILD_TEMPLATE_VARS`,
+- the `runboat-builds` PriorityClass,
+- the `runboat-wildcard-tls` and `runboat-mailhog-wildcard-tls` secrets in the build namespace.

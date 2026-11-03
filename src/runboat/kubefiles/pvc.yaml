@@ -3,10 +3,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: data
 spec:
+  # Shared NFS storage (runboat-nfs): no per-node attach/detach, pods can move
+  # freely between nodes when the cluster autoscaler adds or removes nodes.
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 2Gi
-    limits:
-      storage: 3Gi

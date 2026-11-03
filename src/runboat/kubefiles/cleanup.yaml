@@ -10,6 +10,7 @@ spec:
       labels:
         runboat/job-kind: cleanup
     spec:
+      priorityClassName: runboat-builds
       enableServiceLinks: false
       containers:
         - name: cleanup

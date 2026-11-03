@@ -62,7 +62,7 @@ patches:
       kind: PersistentVolumeClaim
       name: data
     patch: |-
-      - op: replace
+      - op: add
         path: /spec/storageClassName
         value: my-storage-class
   - target:
